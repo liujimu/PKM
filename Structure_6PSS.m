@@ -10,11 +10,11 @@ function [PAP PB0 Dr lr U_Pb U_Bb] = Structure_6PSS(a,b,lr,angx)
     
     %机构基本参数定义，单位取为m
     if nargin < 4 %当输入参数小于4个时，返回默认给定的参数
-        a=450/1000;%数值杆铰点圆半径
-        b=450/1000;%水平杆铰点圆半径
-        lr=1200/1000;%连杆长度
-        ang=150/180*pi;%水平杆铰点 布置偏角
-        ang2=-0/180*pi;
+        a=100/1000;%竖直杆铰点圆半径
+        b=140/1000;%水平杆铰点圆半径
+        lr=154/1000;%连杆长度
+        ang=120/180*pi;%水平杆铰点 布置偏角
+        ang2=-0/180*pi;%竖直杆铰点 布置偏角
     else
         ang=120/180*pi;
         ang2=-angx/180*pi;
@@ -22,16 +22,16 @@ function [PAP PB0 Dr lr U_Pb U_Bb] = Structure_6PSS(a,b,lr,angx)
 
     
     c=0;%ang_0=0/180*pi;%初始模型中的尺寸参数，已废弃，置0
-    h_ver = -19/1000;%动平台竖直三杆的虎克铰平面相对于动平台参考平面的位置
+    h_ver = 6/1000;%动平台竖直三杆的虎克铰平面相对于动平台参考平面的位置
     
     %动平台上下三角形夹角，上三角形绕x轴转动ang角
     R_X=[1 0 0;0 cos(ang) -sin(ang);0 sin(ang) cos(ang);];%绕X轴旋转矩阵
     
     R_X2=[1 0 0;0 cos(ang2) -sin(ang2);0 sin(ang2) cos(ang2);];%绕X轴旋转矩阵
     %上三角形0位铰点布置
-    PAPu=[0, b*cos(pi/3*2) - c*sin(pi/3*2), c*cos(pi/3*2) + b*sin(pi/3*2);
-        0,b,c;
-        0, b*cos(-pi/3*2) - c*sin(-pi/3*2), c*cos(-pi/3*2) + b*sin(-pi/3*2);
+    PAPu=[0, b*cos(pi/3*2), b*sin(pi/3*2);
+        0,b,0;
+        0, b*cos(-pi/3*2), b*sin(-pi/3*2);
         ].';
     %下三角形铰点布置
     PAPd=[0 + h_ver,-a/2,-a*3^0.5/2;
