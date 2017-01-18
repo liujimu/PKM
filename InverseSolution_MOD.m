@@ -61,11 +61,6 @@ function [q, J] = InverseSolution_MOD(pu, angu)
 
     alpha = angu(3); beta = angu(2); gamma = angu(1);
 
-    %  ZYZ euler angle
-%     Ru = [ cos(alpha)*cos(beta)*cos(gamma) - sin(alpha)*sin(gamma), - cos(gamma)*sin(alpha) - cos(alpha)*cos(beta)*sin(gamma), cos(alpha)*sin(beta);
-%            cos(alpha)*sin(gamma) + cos(beta)*cos(gamma)*sin(alpha),   cos(alpha)*cos(gamma) - cos(beta)*sin(alpha)*sin(gamma), sin(alpha)*sin(beta);
-%                                              -cos(gamma)*sin(beta),                                      sin(beta)*sin(gamma),           cos(beta)];
-
     %  RPY(XYZ) fixed angle, gamma on x, then beta on y, alpha on z in the end;
     Ru = [ cos(alpha)*cos(beta), cos(alpha)*sin(beta)*sin(gamma) - cos(gamma)*sin(alpha), sin(alpha)*sin(gamma) + cos(alpha)*cos(gamma)*sin(beta);
            cos(beta)*sin(alpha), cos(alpha)*cos(gamma) + sin(alpha)*sin(beta)*sin(gamma), cos(gamma)*sin(alpha)*sin(beta) - cos(alpha)*sin(gamma);
