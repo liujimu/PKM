@@ -10,29 +10,39 @@ function [q, J] = InverseSolution_MOD(pu, angu)
     ang =150/180*pi;  % angle between horizontal limb's upper joint and vertical limb's upper joint
     l   = [lr lr lr lr lr lr];
     
+    Rx120=[1 0         0;
+           0 cosd(120) -sind(120);
+           0 sind(120) cosd(120)];
+    Rx240=[1 0         0;
+           0 cosd(240) -sind(240);
+           0 sind(240) cosd(240)];
+    
     %动平台水平/垂直三角形夹角，水平三角形绕x轴转动ang角
     RX =[1        0         0;
          0 cos(ang) -sin(ang);
          0 sin(ang) cos(ang);];%绕X轴旋转矩阵
+    
+    %水平杆倾斜角
+    beta=pi/180*45;
+    RY =[cos(beta)  0 sin(beta);
+         0          1         0;
+         -sin(beta) 0 cos(beta);];%绕Y轴旋转矩阵
      
     %水平三角形0位铰点布置
-    Auh = [ 0,  b*cos(pi/3*2),  b*sin(pi/3*2);
-            0,              b,              0;
-            0, b*cos(-pi/3*2), b*sin(-pi/3*2);]';
-      
+     A2=[0 b 0]';
+     Auh = [Rx120*A2, A2, Rx240*A2];
+        
     %垂直三角形铰点布置
-    Auv = [ hv,  a*cos(-pi/3*2),  a*sin(-pi/3*2);
-            hv,  a*cos( pi/3*2),  a*sin( pi/3*2);
-            hv,               a,               0]';
+    A6=[hv a 0]';
+    Auv=[Rx240*A6, Rx120*A6, A6];
       
     %动平台铰点布置
     Au = [RX * Auh Auv];
 
-
     %滑块铰点初始位置
-    Buh = [0,   b*cos(pi/3*2) - lr*sin(pi/3*2),   lr*cos(pi/3*2) + b*sin(pi/3*2);
-           0,                                b,                               lr;
-           0, b*cos(-pi/3*2) - lr*sin(-pi/3*2), lr*cos(-pi/3*2) + b*sin(-pi/3*2);]';
+    B2=[0 b lr]';
+    B2_=RY*B2;
+    Buh = [Rx120*B2_, B2_, Rx240*B2_];
      
     Buv = [hv + lr,  a*cos(-pi/3*2),  a*sin(-pi/3*2);
            hv + lr,  a*cos( pi/3*2),  a*sin( pi/3*2);
@@ -41,9 +51,8 @@ function [q, J] = InverseSolution_MOD(pu, angu)
     Bu = [RX * Buh Buv];
 
     %滑块驱动方向
-    Drh = [0 -sin(pi/3*2)   cos(pi/3*2);
-           0            0             1;
-           0 -sin(-pi/3*2) cos(-pi/3*2)]';
+    Dr2 = RY*[0; 0; 1];
+    Drh = [Rx120*Dr2, Dr2, Rx240*Dr2];
     Drh = RX * Drh;
 
     Dr=[ Drh';
