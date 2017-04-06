@@ -9,6 +9,10 @@ function [q, J] = inverse_kinematics(p, rotm)
     limb = 154/1e3;     % 连杆长度
     alpha = 30;         % 动平台竖直三角形与倾斜三角形的旋转角
     beta = 15;          % 倾斜三角形P副方向与xy平面的夹角
+    d_l = 0.02;         % 连杆直径
+    d_s = 0.02;         % 丝杠小径
+    q_min = -0.1;       % 滑块的最小行程
+    q_max = 0.1         % 滑块的最大行程
     %旋转矩阵
     RzB1  = [cosd(alpha) -sind(alpha) 0;
              sind(alpha) cosd(alpha)  0;
@@ -48,6 +52,35 @@ function [q, J] = inverse_kinematics(p, rotm)
         A_(:,i) = A(:,i) + q(i) * P_dir(:,i);
     end
     
+    %% 雅可比矩阵
+    % 运动后连杆的向量
+    l = B_ - A_;
+    % 6-PUS的力雅可比
+    l_dot_p = zeros(1,6);
+    G_p = zeros(6);
+    for i = 1:6
+        l_dot_p(i) = l(:,i)'*P_dir(:,i);
+        G_p(:,i) = [l(:,i);cross(rotm*B(:,i),l(:,i))]./l_dot_p(i);
+    end
+    % 6-UPS的力雅可比（连杆变形对末端位姿的影响）
+    G_l = zeros(6);
+    for i = 1:6
+        G_l(:,i) = [l(:,i);cross(rotm*B(:,i),l(:,i))]./limb;
+    end
+    
+    %% 刚度矩阵
+    % 丝杠刚度
+    K_s = zeros(6);
+    for i = 1:6
+        K_s(i,i) = limb_stiffness(d_s, q-q_min);
+    end
+    K_p = G_p*K_s*G_p';
+    % 连杆变形对末端输出刚度的影响
+    K_l = limb_stiffness(d_l,limb).*eye(6);
+    K_d = G_l*K_l*G_l';
+    % 总刚度
+    K_k = inv(inv(K_p)+inv(K_d));
+    
     %% 画图验证杆件位置
     for i=1:6
         plot3([B(1,i) A(1,i)],[B(2,i) A(2,i)],[B(3,i) A(3,i)]);
@@ -57,5 +90,5 @@ function [q, J] = inverse_kinematics(p, rotm)
     ylabel('y');
     zlabel('z');
     axis equal
-    
+        
 end
