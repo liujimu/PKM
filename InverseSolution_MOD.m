@@ -3,10 +3,10 @@ function [q, J] = InverseSolution_MOD(pu, angu)
    %% geometry parameter initialization
 
     pu = [pu(1);pu(2);pu(3)];
-    a   = 100/1e3;    % vertical limbs' upper joints radius
-    b   = 140/1e3;    % horizontal limbs' upper joints radius
+    a   = 420/1e3;    % vertical limbs' upper joints radius
+    b   = 420/1e3;    % horizontal limbs' upper joints radius
     hv  = 6/1e3;      % vertical limbs' upper joints offset along X axis
-    lr  = 154/1e3;    % limb length
+    lr  = 1000/1e3;    % limb length
     ang =150/180*pi;  % angle between horizontal limb's upper joint and vertical limb's upper joint
     l   = [lr lr lr lr lr lr];
     
@@ -23,7 +23,7 @@ function [q, J] = InverseSolution_MOD(pu, angu)
          0 sin(ang) cos(ang);];%ÈÆXÖáĞı×ª¾ØÕó
     
     %Ë®Æ½¸ËÇãĞ±½Ç
-    beta=pi/180*45;
+    beta=pi/180*0;
     RY =[cos(beta)  0 sin(beta);
          0          1         0;
          -sin(beta) 0 cos(beta);];%ÈÆYÖáĞı×ª¾ØÕó

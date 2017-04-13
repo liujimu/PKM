@@ -1,14 +1,14 @@
 clear;
 close all
 %%参数初始化
-qh_max=0.0435;
-qh_min=qh_max-0.13;
-qv_max=0.0375;
-qv_min=qv_max-0.13;
-dx=0.005;
-dr=0.001;
+qh_max=0.25;
+qh_min=qh_max-0.5;
+qv_max=0.25;
+qv_min=qv_max-0.5;
+dx=0.01;
+dr=0.005;
 da=pi/180*5;
-r_max=0.12;
+r_max=0.5;
 a_max=pi/180*120;
 q_min=[qh_min*ones(1,3) qv_min*ones(1,3)];
 q_max=[qh_max*ones(1,3) qv_max*ones(1,3)];
@@ -17,6 +17,7 @@ map_color=jet(round(r_max/dr)+1);
 ws=[];
 wsc=[];
 rm3=[];
+
 for x=qv_min:dx:qv_max
     for a=0:da:a_max
         rm1=[];
