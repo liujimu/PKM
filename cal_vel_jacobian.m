@@ -1,7 +1,5 @@
-function q = inverse_kinematics( p, rotm )
-% 6-PUS机构的运动学反解 
-% by Liu Jimu
-
+function jac = cal_vel_jacobian( p, rotm )
+% 计算速度雅可比
     p = [p(1);p(2);p(3)];
     %%定义机构尺寸
     param = default_param();
@@ -45,10 +43,7 @@ function q = inverse_kinematics( p, rotm )
     B_ = rotm * B + p;
     AB_ = B_ - A;
     A_ = zeros(size(A));
+
+    jac = zeros(6, 6);
     
-    q = zeros(1,6);
-    for i = 1:6
-        q(i) = AB_(:,i)'*P_dir(:,i) - sqrt( limb^2 - (AB_(:,i)'*AB_(:,i) - (AB_(:,i)'*P_dir(:,i))^2));
-        A_(:,i) = A(:,i) + q(i) * P_dir(:,i);
-    end        
 end
