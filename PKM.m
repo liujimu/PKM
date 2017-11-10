@@ -11,7 +11,7 @@ classdef PKM < handle
         q_min = zeros(1,6);
         q_max = zeros(1,6);
         %末端位姿
-        pf_pe = zeros(1,6);
+        pose = zeros(1,6);
         %驱动量
         q = zeros(1,6);
         %速度雅可比
@@ -22,14 +22,14 @@ classdef PKM < handle
         function obj = PKM(r1,r2,h1,l,alpha,beta)
             %旋转矩阵
             RzB1  = [cosd(alpha) -sind(alpha) 0;
-                     sind(alpha) cosd(alpha)  0;
-                     0           0            1];
+                sind(alpha) cosd(alpha)  0;
+                0           0            1];
             Rz120 = [cosd(120) -sind(120) 0;
-                     sind(120) cosd(120)  0;
-                     0         0          1];
+                sind(120) cosd(120)  0;
+                0         0          1];
             RyP4 = [cosd(beta)  0 sind(beta);
-                    0           1          0;
-                    -sind(beta) 0 cosd(beta)];
+                0           1          0;
+                -sind(beta) 0 cosd(beta)];
             % 动平台S副位置
             S1_= [0 r1 h1]';
             S1 = RzB1 * S1_;
@@ -51,19 +51,19 @@ classdef PKM < handle
             % U副初始位置
             obj.U_init = -l * P_dir + S_init;
         end
-       %% 运动学反解
+        %% 运动学反解
         function invKin( obj )
             % 运动后S副位置
-            rotm = RotMat(obj.pf_pe(4),obj.pf_pe(5),obj.pf_pe(6));
-            p = obj.pf_pe(1:3)';
+            rotm = RotMat(obj.pose(4),obj.pose(5),obj.pose(6));
+            p = obj.pose(1:3)';
             obj.S_cur = rotm * obj.S_init + p;
             UiSc = obj.S_cur - obj.U_init;
             for i = 1:6
                 obj.q(i) = UiSc(:,i)'*obj.P_dir(:,i) - sqrt( limb^2 - (UiSc(:,i)'*UiSc(:,i) - (UiSc(:,i)'*obj.P_dir(:,i))^2));
                 obj.U_cur(:,i) = obj.U_init(:,i) + obj.q(i) * obj.P_dir(:,i);
-            end            
+            end
         end
-       %% 速度雅可比
+        %% 速度雅可比
         function calVelJac( obj )
             Jinv = zeros(6);
             l = obj.S_cur - obj.U_cur; %连杆向量
@@ -74,6 +74,18 @@ classdef PKM < handle
             end
             obj.jac = inv(Jinv);
         end
-        
+        %% 判断是否在工作空间内
+        function boolout = isInWorkspace( obj )
+            boolout = true;
+            invKin( obj );
+            % 判断是否超行程
+            if sum( obj.q >= obj.q_min & obj.q <= obj.q_max ) < 6
+                boolout = false;
+            end
+            % 判断是否奇异
+            if det(obj.jac) < 10e-2 || det(obj.jac) > 100
+                boolout = false;
+            end
+        end
     end
 end
