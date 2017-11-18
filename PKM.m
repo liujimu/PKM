@@ -4,52 +4,61 @@ classdef PKM < handle
         S_init = zeros(3,6);
         U_init = zeros(3,6);
         P_dir = zeros(3,6);
-        %各关节当前位置
-        S_cur = zeros(3,6);
-        U_cur = zeros(3,6);
         %最大最小行程
         q_min = zeros(1,6);
         q_max = zeros(1,6);
-        %末端位姿
-        pose = zeros(1,6);
         %驱动量
         q = zeros(1,6);
+        %末端位姿
+        pose = zeros(1,6);
+        %各关节当前位置
+        S_cur = zeros(3,6);
+        U_cur = zeros(3,6);
         %速度雅可比
         jac = zeros(6);
     end
     
     methods
-        function obj = PKM(r1,r2,h1,l,alpha,beta)
+        %% 初始化
+        function obj = PKM( ru, rl, thetau, thetal, l )
+            %默认参数
+            if nargin < 5
+                ru = 82.1;
+                rl = 240;
+                thetau = 86.0151 / 180 * pi;
+                thetal = 26.9868 / 180 * pi;
+                l = 260;
+            end
             %旋转矩阵
-            RzB1  = [cosd(alpha) -sind(alpha) 0;
-                sind(alpha) cosd(alpha)  0;
-                0           0            1];
             Rz120 = [cosd(120) -sind(120) 0;
-                sind(120) cosd(120)  0;
-                0         0          1];
-            RyP4 = [cosd(beta)  0 sind(beta);
-                0           1          0;
-                -sind(beta) 0 cosd(beta)];
+                     sind(120) cosd(120)  0;
+                     0         0          1];
             % 动平台S副位置
-            S1_= [0 r1 h1]';
-            S1 = RzB1 * S1_;
-            S2 = Rz120 * S1;
-            S3 = Rz120 * S2;
-            S4 = [0 r2 0]';
-            S5 = Rz120 * S4;
-            S6 = Rz120 * S5;
+            S1 = [ru * cos(pi/2 - thetau/2); ru * sin(pi/2 - thetau/2); 0];
+            S2 = [ru * cos(pi/2 + thetau/2); ru * sin(pi/2 + thetau/2); 0];
+            S3 = Rz120 * S1;
+            S4 = Rz120 * S2;
+            S5 = Rz120 * S3;
+            S6 = Rz120 * S4;
             obj.S_init = [S1, S2, S3, S4, S5, S6];
+            % U副初始位置
+            U1 = [rl * cos(pi/2 - thetal/2); rl * sin(pi/2 - thetal/2); 0];
+            U1(3) = -sqrt(l^2 - (U1(1) - S1(1))^2 - (U1(2) - S1(2))^2);
+            U2 = [rl * cos(pi/2 + thetal/2); rl * sin(pi/2 + thetal/2); 0];
+            U2(3) = -sqrt(l^2 - (U2(1) - S2(1))^2 - (U2(2) - S2(2))^2);
+            U3 = Rz120 * U1;
+            U4 = Rz120 * U2;
+            U5 = Rz120 * U3;
+            U6 = Rz120 * U4;
+            obj.U_init = [U1, U2, U3, U4, U5, U6];
             % P副方向
             P1_dir = [0 0 1]';
-            P2_dir = P1_dir;
-            P3_dir = P1_dir;
-            P4_dir_ = [-1 0 0]';
-            P4_dir = RyP4 * P4_dir_;
-            P5_dir = Rz120 * P4_dir;
-            P6_dir = Rz120 * P5_dir;
+            P2_dir = [0 0 1]';
+            P3_dir = Rz120 * P1_dir;
+            P4_dir = Rz120 * P2_dir;
+            P5_dir = Rz120 * P3_dir;
+            P6_dir = Rz120 * P4_dir;
             obj.P_dir = [P1_dir, P2_dir, P3_dir, P4_dir, P5_dir, P6_dir];
-            % U副初始位置
-            obj.U_init = -l * P_dir + S_init;
         end
         %% 运动学反解
         function invKin( obj )
@@ -86,6 +95,16 @@ classdef PKM < handle
             if det(obj.jac) < 10e-2 || det(obj.jac) > 100
                 boolout = false;
             end
+        end
+        %% 标定
+        function paramError = calibration( obj, poses )
+            % 连杆向量
+            l_dir = zeros(3,6);
+            for i = 1:6
+                l_dir(:,i) = obj.S_cur(:,i) - obj.U_cur(:,i);
+                l_dir(:,i) = l_dir(:,i) / norm(l_dir(:,i));
+            end
+            
         end
     end
 end
