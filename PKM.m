@@ -4,13 +4,16 @@ classdef PKM < handle
         S_init = zeros(3,6);
         U_init = zeros(3,6);
         P_dir = zeros(3,6);
+        %连杆长度
+        l = zeros(1,6);
+        %驱动量
+        q = zeros(1,6);
         %最大最小行程
         q_min = zeros(1,6);
         q_max = zeros(1,6);
-        %驱动量
-        q = zeros(1,6);
         %末端位姿
         pose = zeros(1,6);
+        rotm = eye(3);
         %各关节当前位置
         S_cur = zeros(3,6);
         U_cur = zeros(3,6);
@@ -20,14 +23,16 @@ classdef PKM < handle
     
     methods
         %% 初始化
-        function obj = PKM( ru, rl, thetau, thetal, l )
+        function obj = PKM( ru, rl, thetau, thetal, l, qmin, qmax )
             %默认参数
-            if nargin < 5
-                ru = 82.1;
-                rl = 240;
+            if nargin < 7
+                ru = 82.1 / 1000;
+                rl = 240 / 1000;
                 thetau = 86.0151 / 180 * pi;
                 thetal = 26.9868 / 180 * pi;
-                l = 260;
+                l = 260 / 1000;
+                qmin = -0.1;
+                qmax = 0.1;
             end
             %旋转矩阵
             Rz120 = [cosd(120) -sind(120) 0;
@@ -59,28 +64,46 @@ classdef PKM < handle
             P5_dir = Rz120 * P3_dir;
             P6_dir = Rz120 * P4_dir;
             obj.P_dir = [P1_dir, P2_dir, P3_dir, P4_dir, P5_dir, P6_dir];
+            % 连杆长度
+            obj.l = l * ones(1,6);
+            % 行程限制
+            obj.q_min = qmin * ones(1,6);
+            obj.q_max = qmax * ones(1,6);
+        end
+        %% 设置末端位姿
+        function set.pose(obj,val)
+            obj.pose = val;
+            disp('set function called');
+            obj.invKin();
         end
         %% 运动学反解
         function invKin( obj )
             % 运动后S副位置
-            rotm = RotMat(obj.pose(4),obj.pose(5),obj.pose(6));
-            p = obj.pose(1:3)';
-            obj.S_cur = rotm * obj.S_init + p;
+            % rotm = RotMat(obj.pose(4),obj.pose(5),obj.pose(6));
+            alpha = obj.pose(4);
+            beta = obj.pose(5);
+            gamma = obj.pose(6);
+            obj.rotm = [                                    cos(beta)*cos(gamma),                                     -cos(beta)*sin(gamma),              sin(beta);
+                         sin(alpha)*sin(beta)*cos(gamma) + cos(alpha)*sin(gamma),  -sin(alpha)*sin(beta)*sin(gamma) + cos(alpha)*cos(gamma),  -sin(alpha)*cos(beta);
+                        -cos(alpha)*sin(beta)*cos(gamma) + sin(alpha)*sin(gamma),   cos(alpha)*sin(beta)*sin(gamma) + sin(alpha)*cos(gamma),   cos(alpha)*cos(beta)];
+            p = repmat(obj.pose(1:3)',1,6);
+            obj.S_cur = obj.rotm * obj.S_init + p;
             UiSc = obj.S_cur - obj.U_init;
             for i = 1:6
-                obj.q(i) = UiSc(:,i)'*obj.P_dir(:,i) - sqrt( limb^2 - (UiSc(:,i)'*UiSc(:,i) - (UiSc(:,i)'*obj.P_dir(:,i))^2));
+                obj.q(i) = UiSc(:,i)'*obj.P_dir(:,i) - sqrt(obj.l(i)^2 - (UiSc(:,i)'*UiSc(:,i) - (UiSc(:,i)'*obj.P_dir(:,i))^2));
                 obj.U_cur(:,i) = obj.U_init(:,i) + obj.q(i) * obj.P_dir(:,i);
             end
         end
         %% 速度雅可比
         function calVelJac( obj )
             Jinv = zeros(6);
-            l = obj.S_cur - obj.U_cur; %连杆向量
+            l_dir = obj.S_cur - obj.U_cur; %连杆向量
             for i = 1:6
-                liei = l(:,i)' * obj.P_dir(:, i);
-                RSi = rotm * obj.S_init(:,i);
-                Jinv(i, :) = [l(:,i)'/liei, (cross(RSi, l(:,i))/liei)'];
+                liei = l_dir(:,i)' * obj.P_dir(:, i);
+                RSi = obj.rotm * obj.S_init(:,i);
+                Jinv(i, :) = [l_dir(:,i)'/liei, (cross(RSi, l_dir(:,i))/liei)'];
             end
+            fprintf('det(J^-1) = %d\n',det(Jinv));
             obj.jac = inv(Jinv);
         end
         %% 判断是否在工作空间内
@@ -92,7 +115,7 @@ classdef PKM < handle
                 boolout = false;
             end
             % 判断是否奇异
-            if det(obj.jac) < 10e-2 || det(obj.jac) > 100
+            if abs(det(obj.jac)) < 10e-3 || abs(det(obj.jac)) > 10e3
                 boolout = false;
             end
         end
