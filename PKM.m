@@ -7,16 +7,17 @@ classdef PKM < handle
         %连杆长度
         l = zeros(1,6);
         %驱动量
-        q = zeros(1,6);
+        q = zeros(6,1);
         %最大最小行程
-        q_min = zeros(1,6);
-        q_max = zeros(1,6);
+        q_min = zeros(6,1);
+        q_max = zeros(6,1);
         %末端位姿
-        pose = zeros(1,6);
+        pose = zeros(6,1);
         rotm = eye(3);
         %各关节当前位置
         S_cur = zeros(3,6);
         U_cur = zeros(3,6);
+        l_dir = zeros(3,6);
         %速度雅可比
         jac = zeros(6);
     end
@@ -67,13 +68,13 @@ classdef PKM < handle
             % 连杆长度
             obj.l = l * ones(1,6);
             % 行程限制
-            obj.q_min = qmin * ones(1,6);
-            obj.q_max = qmax * ones(1,6);
+            obj.q_min = qmin * ones(6,1);
+            obj.q_max = qmax * ones(6,1);
         end
         %% 设置末端位姿
         function set.pose(obj,val)
             obj.pose = val;
-            disp('set function called');
+            % disp('set function called');
             obj.invKin();
         end
         %% 运动学反解
@@ -86,24 +87,27 @@ classdef PKM < handle
             obj.rotm = [                                    cos(beta)*cos(gamma),                                     -cos(beta)*sin(gamma),              sin(beta);
                          sin(alpha)*sin(beta)*cos(gamma) + cos(alpha)*sin(gamma),  -sin(alpha)*sin(beta)*sin(gamma) + cos(alpha)*cos(gamma),  -sin(alpha)*cos(beta);
                         -cos(alpha)*sin(beta)*cos(gamma) + sin(alpha)*sin(gamma),   cos(alpha)*sin(beta)*sin(gamma) + sin(alpha)*cos(gamma),   cos(alpha)*cos(beta)];
-            p = repmat(obj.pose(1:3)',1,6);
+            p = repmat(obj.pose(1:3),1,6);
             obj.S_cur = obj.rotm * obj.S_init + p;
             UiSc = obj.S_cur - obj.U_init;
             for i = 1:6
                 obj.q(i) = UiSc(:,i)'*obj.P_dir(:,i) - sqrt(obj.l(i)^2 - (UiSc(:,i)'*UiSc(:,i) - (UiSc(:,i)'*obj.P_dir(:,i))^2));
                 obj.U_cur(:,i) = obj.U_init(:,i) + obj.q(i) * obj.P_dir(:,i);
             end
+            obj.l_dir = obj.S_cur - obj.U_cur;
+            for i = 1:6
+                obj.l_dir(:,i) = obj.l_dir(:,i) / norm(obj.l_dir(:,i));
+            end
         end
         %% 速度雅可比
         function calVelJac( obj )
             Jinv = zeros(6);
-            l_dir = obj.S_cur - obj.U_cur; %连杆向量
             for i = 1:6
-                liei = l_dir(:,i)' * obj.P_dir(:, i);
+                liei = obj.l_dir(:,i)' * obj.P_dir(:, i);
                 RSi = obj.rotm * obj.S_init(:,i);
-                Jinv(i, :) = [l_dir(:,i)'/liei, (cross(RSi, l_dir(:,i))/liei)'];
+                Jinv(i, :) = [obj.l_dir(:,i)'/liei, (cross(RSi, obj.l_dir(:,i))/liei)'];
             end
-            fprintf('det(J^-1) = %d\n',det(Jinv));
+            % fprintf('det(J^-1) = %d\n',det(Jinv));
             obj.jac = inv(Jinv);
         end
         %% 判断是否在工作空间内
@@ -118,16 +122,6 @@ classdef PKM < handle
             if abs(det(obj.jac)) < 10e-3 || abs(det(obj.jac)) > 10e3
                 boolout = false;
             end
-        end
-        %% 标定
-        function paramError = calibration( obj, poses )
-            % 连杆向量
-            l_dir = zeros(3,6);
-            for i = 1:6
-                l_dir(:,i) = obj.S_cur(:,i) - obj.U_cur(:,i);
-                l_dir(:,i) = l_dir(:,i) / norm(l_dir(:,i));
-            end
-            
         end
     end
 end
