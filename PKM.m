@@ -24,16 +24,29 @@ classdef PKM < handle
     
     methods
         %% 初始化
-        function obj = PKM( ru, rl, thetau, thetal, l, qmin, qmax )
+        function obj = PKM( param_errors, ru, rl, thetau, thetal, l, qmin, qmax )
             %默认参数
-            if nargin < 7
+            if nargin < 8 
                 ru = 82.1 / 1000;
                 rl = 240 / 1000;
                 thetau = 86.0151 / 180 * pi;
                 thetal = 26.9868 / 180 * pi;
                 l = 260 / 1000;
-                qmin = -0.1;
-                qmax = 0.1;
+                qmin = -0.005;
+                qmax = 0.2;
+                if nargin < 1
+                    param_errors = zeros(60,1);
+                end
+            end
+            %误差参数
+            l_errors = param_errors(1:6);
+            U_errors = zeros(3,6);
+            S_errors = zeros(3,6);
+            P_errors = zeros(3,6);
+            for i = 1:6
+                U_errors(:,i) = param_errors((9*i-2):(9*i));
+                S_errors(:,i) = param_errors((9*i+1):(9*i+3));
+                P_errors(:,i) = param_errors((9*i+4):(9*i+6));
             end
             %旋转矩阵
             Rz120 = [cosd(120) -sind(120) 0;
@@ -46,7 +59,7 @@ classdef PKM < handle
             S4 = Rz120 * S2;
             S5 = Rz120 * S3;
             S6 = Rz120 * S4;
-            obj.S_init = [S1, S2, S3, S4, S5, S6];
+            obj.S_init = [S1, S2, S3, S4, S5, S6] + S_errors;
             % U副初始位置
             U1 = [rl * cos(pi/2 - thetal/2); rl * sin(pi/2 - thetal/2); 0];
             U1(3) = -sqrt(l^2 - (U1(1) - S1(1))^2 - (U1(2) - S1(2))^2);
@@ -56,7 +69,7 @@ classdef PKM < handle
             U4 = Rz120 * U2;
             U5 = Rz120 * U3;
             U6 = Rz120 * U4;
-            obj.U_init = [U1, U2, U3, U4, U5, U6];
+            obj.U_init = [U1, U2, U3, U4, U5, U6] + U_errors;
             % P副方向
             P1_dir = [0 0 1]';
             P2_dir = [0 0 1]';
@@ -64,9 +77,9 @@ classdef PKM < handle
             P4_dir = Rz120 * P2_dir;
             P5_dir = Rz120 * P3_dir;
             P6_dir = Rz120 * P4_dir;
-            obj.P_dir = [P1_dir, P2_dir, P3_dir, P4_dir, P5_dir, P6_dir];
+            obj.P_dir = [P1_dir, P2_dir, P3_dir, P4_dir, P5_dir, P6_dir] + P_errors;
             % 连杆长度
-            obj.l = l * ones(1,6);
+            obj.l = l * ones(6,1) + l_errors;
             % 行程限制
             obj.q_min = qmin * ones(6,1);
             obj.q_max = qmax * ones(6,1);
@@ -113,12 +126,16 @@ classdef PKM < handle
         %% 判断是否在工作空间内
         function boolout = isInWorkspace( obj )
             boolout = true;
-            invKin( obj );
+            obj.invKin();
             % 判断是否超行程
             if sum( obj.q >= obj.q_min & obj.q <= obj.q_max ) < 6
                 boolout = false;
             end
-            % 判断是否奇异
+        end
+        %% 判断是否奇异
+        function boolout = isSingular( obj )
+            boolout = true;
+            obj.calVelJac();
             if abs(det(obj.jac)) < 10e-3 || abs(det(obj.jac)) > 10e3
                 boolout = false;
             end
