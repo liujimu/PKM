@@ -97,6 +97,7 @@ classdef PKM < handle
             alpha = obj.pose(4);
             beta = obj.pose(5);
             gamma = obj.pose(6);
+            % 123欧拉角
             obj.rotm = [                                    cos(beta)*cos(gamma),                                     -cos(beta)*sin(gamma),              sin(beta);
                          sin(alpha)*sin(beta)*cos(gamma) + cos(alpha)*sin(gamma),  -sin(alpha)*sin(beta)*sin(gamma) + cos(alpha)*cos(gamma),  -sin(alpha)*cos(beta);
                         -cos(alpha)*sin(beta)*cos(gamma) + sin(alpha)*sin(gamma),   cos(alpha)*sin(beta)*sin(gamma) + sin(alpha)*cos(gamma),   cos(alpha)*cos(beta)];
@@ -122,6 +123,27 @@ classdef PKM < handle
             end
             % fprintf('det(J^-1) = %d\n',det(Jinv));
             obj.jac = inv(Jinv);
+        end
+        %% 运动学正解
+        function forKin( obj, qin, init_pose )
+            if nargin == 2
+                init_pose = zeros(6,1);
+            end
+            X = init_pose;
+            dq = ones(6,1);
+            alw = 10e-6;
+            n = 0;
+            while norm(dq) > alw
+                X0 = X;
+                obj.pose = X0;
+                q0 = obj.q;
+                obj.calVelJac();
+                X = X0 - obj.jac * (q0 - qin);
+                dq = q0 - qin;
+                n = n + 1;
+            end
+            disp(n);
+            obj.pose = X;
         end
         %% 判断是否在工作空间内
         function boolout = isInWorkspace( obj )
