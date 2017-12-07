@@ -44,9 +44,9 @@ classdef PKM < handle
             S_errors = zeros(3,6);
             P_errors = zeros(3,6);
             for i = 1:6
-                U_errors(:,i) = param_errors((9*i-2):(9*i));
-                S_errors(:,i) = param_errors((9*i+1):(9*i+3));
-                P_errors(:,i) = param_errors((9*i+4):(9*i+6));
+                U_errors(:,i) = param_errors((6+3*i-2):(6+3*i));
+                S_errors(:,i) = param_errors((24+3*i-2):(24+3*i));
+                P_errors(:,i) = param_errors((42+3*i-2):(42+3*i));
             end
             %Ðý×ª¾ØÕó
             Rz120 = [cosd(120) -sind(120) 0;
@@ -131,7 +131,7 @@ classdef PKM < handle
             end
             X = init_pose;
             dq = ones(6,1);
-            alw = 10e-6;
+            alw = 10e-9;
             n = 0;
             while norm(dq) > alw
                 X0 = X;
