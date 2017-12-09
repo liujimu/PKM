@@ -38,12 +38,16 @@ while delta > alw
         %         msg = 'Target pose is a singular pose.';
         %         error(msg);
         %     end
-        %         Jx = [pkm.l_dir; cross(pkm.rotm*pkm.S_init,pkm.l_dir)]';
-        %         Jm = zeros(6,54);
-        %         for j = 1:6
-        %             Jm(j,(j*9-8):j*9) = [-pkm.l_dir(:,j)', pkm.l_dir(:,j)'*pkm.rotm, -pkm.q(j)*pkm.l_dir(:,j)'];
-        %         end
-        %         J = [inv(Jx), -inv(Jx)*Jm];
+%         Jx = [pkm.l_dir; cross(pkm.rotm*pkm.S_init,pkm.l_dir)]';
+%         Jm = zeros(6,54);
+%         for j = 1:6
+%             % Jm(j,(j*9-8):j*9) = [-pkm.l_dir(:,j)', pkm.l_dir(:,j)'*pkm.rotm, -pkm.q(j)*pkm.l_dir(:,j)'];
+%             Jm(j,(3*j-2):(3*j)) = -pkm.l_dir(:,j)';
+%             Jm(j,(18+3*j-2):(18+3*j)) = pkm.l_dir(:,j)'*pkm.rotm;
+%             Jm(j,(36+3*j-2):(36+3*j)) = -pkm.q(j)*pkm.l_dir(:,j)';
+%         end
+%         J = [inv(Jx), -inv(Jx)*Jm];
+%         W((6*i-5):6*i,:) = J;
 
         % 曹睿的标定公式
         % 杆长误差
@@ -72,7 +76,7 @@ while delta > alw
         W((6*i-5):6*i,:) = E;
     end
 %     disp(det(W'*W));
-    param_errors = (W'*W)\W'*dX;
+    param_errors = W\dX;
     accumulated_param_errors = accumulated_param_errors + param_errors;
     pkm = PKM(accumulated_param_errors);
     for i = 1:n
