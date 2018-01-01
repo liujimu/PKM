@@ -1,4 +1,4 @@
- clear;
+clear;
 close all
 %%参数初始化
 Z_MIN = -0.25;
@@ -22,7 +22,7 @@ for i = 1:length(z)
     for j = 1:length(th)
         for k = 1:length(r)
             p = [r(k).*cos(th(j)); r(k).*sin(th(j)); z(i)];
-            isInWorkspace(i,j,k) = isinworkspace(p,rotm);
+            isInWorkspace(i,j,k) = is_in_workspace(p,rotm);
         end
     end
 end

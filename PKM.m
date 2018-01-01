@@ -24,18 +24,24 @@ classdef PKM < handle
     
     methods
         %% 初始化
-        function obj = PKM( param_errors, ru, rl, thetau, thetal, l, qmin, qmax )
+        function obj = PKM( param_errors, rl, thetal, ru, thetau, l, qmin, qmax )
             %默认参数
-            if nargin < 8 
-                ru = 82.1 / 1000;
-                rl = 240 / 1000;
-                thetau = 86.0151 / 180 * pi;
-                thetal = 26.9868 / 180 * pi;
-                l = 260 / 1000;
-                qmin = -0.005;
-                qmax = 0.2;
-                if nargin < 1
-                    param_errors = zeros(60,1);
+            if nargin < 8
+                qmin = -5 / 1000;
+                qmax = 260 / 1000;
+                if nargin < 6
+                    l = 260 / 1000;
+                    if nargin < 5
+                        ru = 82.1 / 1000;
+                        thetau = 86.0151 / 180 * pi;
+                        if nargin < 3
+                            rl = 257 / 1000;
+                            thetal = 25.1713 / 180 * pi;
+                            if nargin < 1
+                                param_errors = zeros(60,1);
+                            end
+                        end
+                    end
                 end
             end
             %误差参数
@@ -78,6 +84,9 @@ classdef PKM < handle
             P5_dir = Rz120 * P3_dir;
             P6_dir = Rz120 * P4_dir;
             obj.P_dir = [P1_dir, P2_dir, P3_dir, P4_dir, P5_dir, P6_dir] + P_errors;
+            for i = 1:6
+                obj.P_dir(:,i) = obj.P_dir(:,i) / norm(obj.P_dir(:,i));
+            end
             % 连杆长度
             obj.l = l * ones(6,1) + l_errors;
             % 行程限制
@@ -85,15 +94,12 @@ classdef PKM < handle
             obj.q_max = qmax * ones(6,1);
         end
         %% 设置末端位姿
-        function set.pose(obj,val)
+        function setPose(obj,val)
             obj.pose = val;
-            % disp('set function called');
             obj.invKin();
         end
         %% 运动学反解
         function invKin( obj )
-            % 运动后S副位置
-            % rotm = RotMat(obj.pose(4),obj.pose(5),obj.pose(6));
             alpha = obj.pose(4);
             beta = obj.pose(5);
             gamma = obj.pose(6);
@@ -102,26 +108,32 @@ classdef PKM < handle
                          sin(alpha)*sin(beta)*cos(gamma) + cos(alpha)*sin(gamma),  -sin(alpha)*sin(beta)*sin(gamma) + cos(alpha)*cos(gamma),  -sin(alpha)*cos(beta);
                         -cos(alpha)*sin(beta)*cos(gamma) + sin(alpha)*sin(gamma),   cos(alpha)*sin(beta)*sin(gamma) + sin(alpha)*cos(gamma),   cos(alpha)*cos(beta)];
             p = repmat(obj.pose(1:3),1,6);
+            % 运动后S副位置
             obj.S_cur = obj.rotm * obj.S_init + p;
             UiSc = obj.S_cur - obj.U_init;
             for i = 1:6
-                obj.q(i) = UiSc(:,i)'*obj.P_dir(:,i) - sqrt(obj.l(i)^2 - (UiSc(:,i)'*UiSc(:,i) - (UiSc(:,i)'*obj.P_dir(:,i))^2));
-                obj.U_cur(:,i) = obj.U_init(:,i) + obj.q(i) * obj.P_dir(:,i);
-            end
-            obj.l_dir = obj.S_cur - obj.U_cur;
-            for i = 1:6
-                obj.l_dir(:,i) = obj.l_dir(:,i) / norm(obj.l_dir(:,i));
+                radicand = obj.l(i)^2 - (UiSc(:,i)'*UiSc(:,i) - (UiSc(:,i)'*obj.P_dir(:,i))^2);
+                % 判断被开方数是否小于0，避免虚数根
+                if radicand < 0
+                    % fprintf('Pose [%f, %f, %f, %f, %f, %f] is out of workspace\n',obj.pose(1),obj.pose(2),obj.pose(3),obj.pose(4),obj.pose(5),obj.pose(6));
+                    obj.q(i) = Inf;
+                    obj.U_cur(:,i) = obj.U_init(:,i);
+                else
+                    obj.q(i) = UiSc(:,i)'*obj.P_dir(:,i) - sqrt(radicand);
+                    obj.U_cur(:,i) = obj.U_init(:,i) + obj.q(i) * obj.P_dir(:,i);
+                    UcSc_i = obj.S_cur(:,i) - obj.U_cur(:,i);
+                    obj.l_dir(:,i) = UcSc_i / norm(UcSc_i);
+                end
             end
         end
         %% 速度雅可比
         function calVelJac( obj )
             Jinv = zeros(6);
             for i = 1:6
-                liei = obj.l_dir(:,i)' * obj.P_dir(:, i);
+                liPi = obj.l_dir(:,i)' * obj.P_dir(:, i);
                 RSi = obj.rotm * obj.S_init(:,i);
-                Jinv(i, :) = [obj.l_dir(:,i)'/liei, (cross(RSi, obj.l_dir(:,i))/liei)'];
+                Jinv(i, :) = [obj.l_dir(:,i)'/liPi, (cross(RSi, obj.l_dir(:,i))/liPi)'];
             end
-            % fprintf('det(J^-1) = %d\n',det(Jinv));
             obj.jac = inv(Jinv);
         end
         %% 运动学正解
@@ -135,7 +147,7 @@ classdef PKM < handle
             n = 0;
             while norm(dq) > alw
                 X0 = X;
-                obj.pose = X0;
+                obj.setPose(X0);
                 q0 = obj.q;
                 obj.calVelJac();
                 X = X0 - obj.jac * (q0 - qin);
@@ -143,24 +155,37 @@ classdef PKM < handle
                 n = n + 1;
             end
             disp(n);
-            obj.pose = X;
+            obj.setPose(X);
         end
         %% 判断是否在工作空间内
-        function boolout = isInWorkspace( obj )
+        function boolout = isInWorkspace( obj, margin )
+            if nargin == 1
+                margin = 0;
+            end
             boolout = true;
             obj.invKin();
             % 判断是否超行程
-            if sum( obj.q >= obj.q_min & obj.q <= obj.q_max ) < 6
+            if sum( obj.q >= (obj.q_min + margin.*ones(size(obj.q))) & obj.q <= (obj.q_max - margin.*ones(size(obj.q)))) < 6
                 boolout = false;
             end
         end
         %% 判断是否奇异
         function boolout = isSingular( obj )
-            boolout = true;
+            boolout = false;
             obj.calVelJac();
             if abs(det(obj.jac)) < 10e-3 || abs(det(obj.jac)) > 10e3
-                boolout = false;
+                boolout = true;
             end
+        end
+        %% 计算连杆分别与动平台Z轴、P副的夹角
+        function angle_out = checkSingularity( obj )
+            angle = zeros(2,6);
+            vz = obj.rotm * [0 0 1]';
+            for i = 1:6
+                angle(1,i) = acos(obj.l_dir(:,i)'*vz);
+                angle(2,i) = acos(obj.l_dir(:,i)'*obj.P_dir(:,i));
+            end
+            angle_out = max(max(angle)) / pi * 180;
         end
     end
 end
