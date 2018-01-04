@@ -27,15 +27,15 @@ classdef PKM < handle
         function obj = PKM( param_errors, rl, thetal, ru, thetau, l, qmin, qmax )
             %Ä¬ÈÏ²ÎÊý
             if nargin < 8
-                qmin = -5 / 1000;
-                qmax = 260 / 1000;
+                qmin = -5;
+                qmax = 260;
                 if nargin < 6
-                    l = 260 / 1000;
+                    l = 260;
                     if nargin < 5
-                        ru = 82.1 / 1000;
+                        ru = 82.1;
                         thetau = 86.0151 / 180 * pi;
                         if nargin < 3
-                            rl = 257 / 1000;
+                            rl = 257;
                             thetal = 25.1713 / 180 * pi;
                             if nargin < 1
                                 param_errors = zeros(60,1);
@@ -143,9 +143,9 @@ classdef PKM < handle
             end
             X = init_pose;
             dq = ones(6,1);
-            alw = 10e-9;
+            eps = 10e-9;
             n = 0;
-            while norm(dq) > alw
+            while norm(dq) > eps
                 X0 = X;
                 obj.setPose(X0);
                 q0 = obj.q;
