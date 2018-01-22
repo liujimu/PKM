@@ -1,28 +1,27 @@
 % 机构标定
 clear;
 pkm = PKM();
-target_poses = xlsread('target_poses.xlsx');
-measured_poses = xlsread('measured_poses.xlsx');
-% target_poses(:,6) = [];
-% measured_poses(:,6) = [];
+target_poses = dlmread('.\calibration_20180101\calibration_target_poses_20180101.txt',',');
+target_poses = target_poses(:,1:6);
+measured_poses = dlmread('.\calibration_20180101\calibration_measured_poses_20180101.txt',',');
+target_poses = target_poses';
+measured_poses = measured_poses';
 
 n = length(target_poses);
-dX = reshape(measured_poses - target_poses,[],1);
-updated_poses = zeros(6,n);
+updated_poses = target_poses;
 qin = zeros(6,n);
-param_errors = zeros(60,1);
-accumulated_param_errors = zeros(60,1);
+load('calibration_PSO_result.mat', 'param_errors')
+param_errors = param_errors';
+accumulated_param_errors = param_errors;
 delta = 1;
-alw = 10e-5;
+eps = 10e-3;
 k = 0;%迭代次数
-while delta > alw
+while delta > eps
     W = zeros(6*n,60);
     for i = 1:n
+        pkm.setPose(updated_poses(:,i));
         if k == 0
-            pkm.pose = target_poses(:,i);
             qin(:,i) = pkm.q;
-        else
-            pkm.pose = updated_poses(:,i);
         end
         pkm.calVelJac();
         % 判断测试点是否在工作空间内，是否是奇异点
@@ -76,15 +75,20 @@ while delta > alw
         W((6*i-5):6*i,:) = E;
     end
 %     disp(det(W'*W));
+    error_poses = measured_poses - updated_poses;
+    dX = reshape(error_poses,[],1);
+    delta_position = norm(error_poses(1:3,:),1);
+    delta_orientation = norm(error_poses(4:6,:),1);
+    delta = delta_position + 50 * delta_orientation;
     param_errors = W\dX;
     accumulated_param_errors = accumulated_param_errors + param_errors;
+    
+    % 将误差参数带入机构，用正解计算位姿
     pkm = PKM(accumulated_param_errors);
     for i = 1:n
         pkm.forKin(qin(:,i), target_poses(:,i));
         updated_poses(:,i) = pkm.pose;
     end
-    dX = reshape(measured_poses - updated_poses,[],1);
-    delta = max(abs(dX));
 
     k = k + 1;
     fprintf('In the %dth iteration, delta = %f\n', k, delta);
