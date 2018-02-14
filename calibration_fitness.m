@@ -16,6 +16,7 @@ function fitness_value = calibration_fitness( input )
         end
     end
     dq = reshape(calc_qin - real_qin,[],1);
-    fitness_value = sum(abs(dq));
+    %fitness_value = max(abs(dq));
+    fitness_value = norm(dq);
 end
 

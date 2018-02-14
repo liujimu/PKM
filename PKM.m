@@ -38,21 +38,21 @@ classdef PKM < handle
                             rl = 257;
                             thetal = 25.1713 / 180 * pi;
                             if nargin < 1
-                                param_errors = zeros(60,1);
+                                param_errors = zeros(54,1);
                             end
                         end
                     end
                 end
             end
             %误差参数
-            l_errors = param_errors(1:6);
-            U_errors = zeros(3,6);
-            S_errors = zeros(3,6);
-            P_errors = zeros(3,6);
+            l_errors = param_errors(1:6);   %杆长误差
+            P_errors = zeros(3,6);          %导轨方向误差
+            U_errors = zeros(3,6);          %U副初始位置误差
+            S_errors = zeros(3,6);          %S副初始位置误差
             for i = 1:6
-                U_errors(:,i) = param_errors((6+3*i-2):(6+3*i));
-                S_errors(:,i) = param_errors((24+3*i-2):(24+3*i));
-                P_errors(:,i) = param_errors((42+3*i-2):(42+3*i));
+                P_errors(1:2,i) = param_errors((6+2*i-1):(6+2*i)); %只考虑x,y方向（直线方向只有两个独立变量）
+                U_errors(:,i) = param_errors((18+3*i-2):(18+3*i));
+                S_errors(:,i) = param_errors((36+3*i-2):(36+3*i));
             end
             %旋转矩阵
             Rz120 = [cosd(120) -sind(120) 0;
@@ -85,7 +85,7 @@ classdef PKM < handle
             P6_dir = Rz120 * P4_dir;
             obj.P_dir = [P1_dir, P2_dir, P3_dir, P4_dir, P5_dir, P6_dir] + P_errors;
             for i = 1:6
-                obj.P_dir(:,i) = obj.P_dir(:,i) / norm(obj.P_dir(:,i));
+                obj.P_dir(3,i) = sqrt(1 - obj.P_dir(1,i)^2 - obj.P_dir(2,i)^2);
             end
             % 连杆长度
             obj.l = l * ones(6,1) + l_errors;
@@ -154,7 +154,7 @@ classdef PKM < handle
                 dq = q0 - qin;
                 n = n + 1;
             end
-            disp(n);
+            %disp(n);
             obj.setPose(X);
         end
         %% 判断是否在工作空间内
