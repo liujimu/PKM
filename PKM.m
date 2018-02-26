@@ -72,14 +72,17 @@ classdef PKM < handle
             obj.S_init = [S1, S2, S3, S4, S5, S6] + S_errors;
             % U副初始位置
             U1 = [rl * cos(pi/2 - thetal/2); rl * sin(pi/2 - thetal/2); 0];
-            U1(3) = -sqrt(obj.l(1)^2 - (U1(1) - S1(1))^2 - (U1(2) - S1(2))^2);
+            %U1(3) = -sqrt(obj.l(1)^2 - (U1(1) - S1(1))^2 - (U1(2) - S1(2))^2);
             U2 = [rl * cos(pi/2 + thetal/2); rl * sin(pi/2 + thetal/2); 0];
-            U2(3) = -sqrt(obj.l(2)^2 - (U2(1) - S2(1))^2 - (U2(2) - S2(2))^2);
+            %U2(3) = -sqrt(obj.l(2)^2 - (U2(1) - S2(1))^2 - (U2(2) - S2(2))^2);
             U3 = Rz120 * U1;
             U4 = Rz120 * U2;
             U5 = Rz120 * U3;
             U6 = Rz120 * U4;
             obj.U_init = [U1, U2, U3, U4, U5, U6] + U_errors;
+            for i = 1:6
+                obj.U_init(3,i) = -sqrt(obj.l(i)^2 - (obj.U_init(1,i) - obj.S_init(1,i))^2 - (obj.U_init(2,i) - obj.S_init(2,i))^2);
+            end
             % P副方向
             P1_dir = [0 0 1]';
             P2_dir = [0 0 1]';
