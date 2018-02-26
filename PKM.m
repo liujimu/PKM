@@ -8,6 +8,7 @@ classdef PKM < handle
         l = zeros(1,6);
         %驱动量
         q = zeros(6,1);
+        home_errors = zeros(6,1);
         %最大最小行程
         q_min = zeros(6,1);
         q_max = zeros(6,1);
@@ -45,19 +46,22 @@ classdef PKM < handle
                 end
             end
             %误差参数
-            l_errors = param_errors(1:6);   %杆长误差
+            obj.home_errors = param_errors(1:6);%电机home位置误差
+            l_errors = param_errors(7:12);  %杆长误差
             P_errors = zeros(3,6);          %导轨方向误差
             U_errors = zeros(3,6);          %U副初始位置误差
             S_errors = zeros(3,6);          %S副初始位置误差
             for i = 1:6
-                P_errors(1:2,i) = param_errors((6+2*i-1):(6+2*i)); %只考虑x,y方向（直线方向只有两个独立变量）
-                U_errors(:,i) = param_errors((18+3*i-2):(18+3*i));
+                P_errors(1:2,i) = param_errors((12+2*i-1):(12+2*i)); %只考虑x,y方向（直线方向只有两个独立变量）
+                U_errors(1:2,i) = param_errors((24+2*i-1):(24+2*i)); %只考虑x,y方向
                 S_errors(:,i) = param_errors((36+3*i-2):(36+3*i));
             end
             %旋转矩阵
             Rz120 = [cosd(120) -sind(120) 0;
                      sind(120) cosd(120)  0;
                      0         0          1];
+            % 连杆长度
+            obj.l = l * ones(6,1) + l_errors;
             % 动平台S副位置
             S1 = [ru * cos(pi/2 - thetau/2); ru * sin(pi/2 - thetau/2); 0];
             S2 = [ru * cos(pi/2 + thetau/2); ru * sin(pi/2 + thetau/2); 0];
@@ -68,9 +72,9 @@ classdef PKM < handle
             obj.S_init = [S1, S2, S3, S4, S5, S6] + S_errors;
             % U副初始位置
             U1 = [rl * cos(pi/2 - thetal/2); rl * sin(pi/2 - thetal/2); 0];
-            U1(3) = -sqrt(l^2 - (U1(1) - S1(1))^2 - (U1(2) - S1(2))^2);
+            U1(3) = -sqrt(obj.l(1)^2 - (U1(1) - S1(1))^2 - (U1(2) - S1(2))^2);
             U2 = [rl * cos(pi/2 + thetal/2); rl * sin(pi/2 + thetal/2); 0];
-            U2(3) = -sqrt(l^2 - (U2(1) - S2(1))^2 - (U2(2) - S2(2))^2);
+            U2(3) = -sqrt(obj.l(2)^2 - (U2(1) - S2(1))^2 - (U2(2) - S2(2))^2);
             U3 = Rz120 * U1;
             U4 = Rz120 * U2;
             U5 = Rz120 * U3;
@@ -87,8 +91,6 @@ classdef PKM < handle
             for i = 1:6
                 obj.P_dir(3,i) = sqrt(1 - obj.P_dir(1,i)^2 - obj.P_dir(2,i)^2);
             end
-            % 连杆长度
-            obj.l = l * ones(6,1) + l_errors;
             % 行程限制
             obj.q_min = qmin * ones(6,1);
             obj.q_max = qmax * ones(6,1);
@@ -111,20 +113,22 @@ classdef PKM < handle
             % 运动后S副位置
             obj.S_cur = obj.rotm * obj.S_init + p;
             UiSc = obj.S_cur - obj.U_init;
+            q = zeros(6,1);
             for i = 1:6
                 radicand = obj.l(i)^2 - (UiSc(:,i)'*UiSc(:,i) - (UiSc(:,i)'*obj.P_dir(:,i))^2);
                 % 判断被开方数是否小于0，避免虚数根
                 if radicand < 0
                     % fprintf('Pose [%f, %f, %f, %f, %f, %f] is out of workspace\n',obj.pose(1),obj.pose(2),obj.pose(3),obj.pose(4),obj.pose(5),obj.pose(6));
-                    obj.q(i) = Inf;
+                    q(i) = Inf;
                     obj.U_cur(:,i) = obj.U_init(:,i);
                 else
-                    obj.q(i) = UiSc(:,i)'*obj.P_dir(:,i) - sqrt(radicand);
-                    obj.U_cur(:,i) = obj.U_init(:,i) + obj.q(i) * obj.P_dir(:,i);
+                    q(i) = UiSc(:,i)'*obj.P_dir(:,i) - sqrt(radicand);
+                    obj.U_cur(:,i) = obj.U_init(:,i) + q(i) * obj.P_dir(:,i);
                     UcSc_i = obj.S_cur(:,i) - obj.U_cur(:,i);
                     obj.l_dir(:,i) = UcSc_i / norm(UcSc_i);
                 end
             end
+            obj.q = q + obj.home_errors;
         end
         %% 速度雅可比
         function calVelJac( obj )
