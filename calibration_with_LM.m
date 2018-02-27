@@ -1,9 +1,9 @@
 % 机构标定
 clear;
 pkm = PKM();
-target_poses = dlmread('.\calibration_20180101\calibration_target_poses_20180101.txt',',');
+target_poses = dlmread('.\calibration_20180227\calibration_target_poses_20180227.txt',',');
 target_poses = target_poses(:,1:6);
-measured_poses = dlmread('.\calibration_20180101\calibration_measured_poses_20180101.txt',',');
+measured_poses = dlmread('.\calibration_20180227\calibration_measured_poses_20180227.txt',',');
 target_poses = target_poses';
 measured_poses = measured_poses';
 
@@ -20,7 +20,7 @@ end
 
 param_errors = zeros(54,1);
 
-fun = @(e)cal_input_error(e,measured_poses,target_input);
+fun = @(e)cal_input_error(e,measured_poses,target_input,50);
 options = optimoptions('lsqnonlin','Algorithm','levenberg-marquardt','Display','iter');
 accumulated_param_errors = lsqnonlin(fun,param_errors,[],[],options);
 
@@ -40,9 +40,9 @@ input_errors = updated_input - target_input;
 max_pose_errors = max(abs(pose_errors),[],2);
 max_input_errors = max(abs(input_errors),[],2);
 
-function dq = cal_input_error(param_error, pose, input)
-    n = length(pose);
-    input_error = zeros(size(input));
+function dq = cal_input_error(param_error, pose, input, n)
+    %n = length(pose);
+    input_error = zeros(6,n);
     for i = 1:n
         pkm = PKM(param_error);
         pkm.setPose(pose(:,i));
