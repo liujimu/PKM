@@ -1,5 +1,11 @@
 classdef PKM < handle
     properties
+        %设计参数
+        rl = 0;
+        thetal = 0;
+        ru = 0;
+        thetau = 0;
+        ll = 0;
         %各关节初始位置
         S_init = zeros(3,6);
         U_init = zeros(3,6);
@@ -45,6 +51,12 @@ classdef PKM < handle
                     end
                 end
             end
+            %设计参数
+            obj.rl = rl;
+            obj.thetal = thetal;
+            obj.ru = ru;
+            obj.thetau = thetau;
+            obj.ll = l;
             %误差参数
             obj.home_errors = param_errors(1:6);%电机home位置误差
             l_errors = param_errors(7:12);  %杆长误差
@@ -193,6 +205,25 @@ classdef PKM < handle
                 angle(2,i) = acos(obj.l_dir(:,i)'*obj.P_dir(:,i));
             end
             angle_out = max(max(angle)) / pi * 180;
+        end
+        %% 计算平动工作空间的半径
+        function r_out = getWorkspaceRadius( obj )
+            theta = 1:60;
+            n = length(theta);
+            r_out = zeros(1,n);
+            rmax = obj.ll + obj.ru - obj.rl;
+            dr = 1;
+            for i = 1:n
+                inWorkspace = 0;
+                r = rmax;
+                while(~inWorkspace)
+                    r = r - dr;
+                    pose_ = [r*sind(theta(i)); r*cosd(theta(i)); 0; 0; 0; 0];
+                    obj.setPose(pose_);
+                    inWorkspace = sum(isfinite(obj.q))==6;
+                end
+                r_out(i) = r;
+            end
         end
     end
 end
