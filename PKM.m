@@ -42,8 +42,10 @@ classdef PKM < handle
                         ru = 82.1;
                         thetau = 86.0151 / 180 * pi;
                         if nargin < 3
-                            rl = 257;
-                            thetal = 25.1713 / 180 * pi;
+                            %rl = 257;
+                            %thetal = 25.1713 / 180 * pi;
+                            rl = 240;
+                            thetal = 26.9868 / 180 * pi;
                             if nargin < 1
                                 param_errors = zeros(54,1);
                             end
@@ -224,6 +226,11 @@ classdef PKM < handle
                 end
                 r_out(i) = r;
             end
+        end
+        %% 根据末端载荷求关节力
+        function joint_forces = getJointForces( obj, wrench )
+            obj.calVelJac();
+            joint_forces = obj.jac' * wrench;
         end
     end
 end
