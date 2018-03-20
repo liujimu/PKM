@@ -149,6 +149,9 @@ classdef PKM < handle
         end
         %% 速度雅可比
         function calVelJac( obj )
+            % dX = J * dq
+            % dX是笛卡尔空间速度，dq是关节空间速度
+            % J = inv(G')
             Jinv = zeros(6);
             for i = 1:6
                 liPi = obj.l_dir(:,i)' * obj.P_dir(:, i);
@@ -218,7 +221,7 @@ classdef PKM < handle
             for i = 1:n
                 inWorkspace = 0;
                 r = rmax;
-                while(~inWorkspace)
+                while ~inWorkspace
                     r = r - dr;
                     pose_ = [r*sind(theta(i)); r*cosd(theta(i)); 0; 0; 0; 0];
                     obj.setPose(pose_);
@@ -229,8 +232,29 @@ classdef PKM < handle
         end
         %% 根据末端载荷求关节力
         function joint_forces = getJointForces( obj, wrench )
+            % τ = J' * F
+            % τ是关节空间的力矢量，F是笛卡尔空间的力-力矩矢量
             obj.calVelJac();
             joint_forces = obj.jac' * wrench;
+        end
+        %% 计算刚度
+        function K = getStiffness(obj)
+            % K = inv(J') * k * inv(J)
+            % k为连杆刚度，是一对角阵；K为刚度矩阵
+            %Steward的雅可比
+            G_l = zeros(6);
+            for i = 1:6
+                RSi = obj.rotm * obj.S_init(:,i);
+                G_l(:,i) = [obj.l_dir(:,i); cross(RSi, obj.l_dir(:,i))];
+            end
+            K_li = 100; %连杆拉压刚度
+            K_l = K_li * eye(6);
+            K_d = G_l * K_l * G_l';
+            
+            K_a = diag([100 200 300 400 500 600]);
+            K_p = inv(obj.jac')*K_a*inv(obj.jac);
+            
+            K = inv(inv(K_p) + inv(K_d));
         end
     end
 end
