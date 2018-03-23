@@ -1,0 +1,21 @@
+%ru = 82.1;
+ru = 82.1;
+thetau = 86.0151 / 180 * pi;
+%thetau = 30 / 180 * pi;
+l = 360;
+%l = 260;
+xu = ru * cos(pi/2 - thetau/2);
+yu = ru * sin(pi/2 - thetau/2);
+%r0 = l * sqrt(6)/3;
+r0 = l * 1/2;
+rl = r0 + ru;
+thetal = 2 * asin(xu / rl);
+param_errors = zeros(54,1);
+pkm = PKM( param_errors, rl, thetal, ru, thetau, l );
+rw = pkm.getWorkspaceRadius();
+plot(rw)
+xlabel('\theta(deg)');
+ylabel('r(mm)');
+pose = [min(rw)*sind(60); min(rw)*cosd(60); 0; 0; 0; 0];
+pkm.setPose(pose);
+disp(pkm.q);
