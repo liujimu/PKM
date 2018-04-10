@@ -238,23 +238,82 @@ classdef PKM < handle
             joint_forces = obj.jac' * wrench;
         end
         %% 计算刚度
-        function K = getStiffness(obj)
+        function K_p = getStiffness(obj)
             % K = inv(J') * k * inv(J)
             % k为连杆刚度，是一对角阵；K为刚度矩阵
+            
+            E_steel = 2.05e5; %钢的弹性模量，单位N/mm^2
+            G_steel = 8e4; %钢的剪切模量，单位N/mm^2
+            
             %Steward的雅可比
             G_l = zeros(6);
             for i = 1:6
                 RSi = obj.rotm * obj.S_init(:,i);
                 G_l(:,i) = [obj.l_dir(:,i); cross(RSi, obj.l_dir(:,i))];
             end
-            K_li = 100; %连杆拉压刚度
+            %连杆的刚度
+            d_li = 20; %连杆直径
+            K_li = E_steel .* pi .* d_li^2 ./ obj.ll; %连杆拉压刚度
             K_l = K_li * eye(6);
             K_d = G_l * K_l * G_l';
             
-            K_a = diag([100 200 300 400 500 600]);
+            %丝杆的刚度
+            d_s = 15; %丝杆小径，单位mm；
+            l_s = 50 + obj.q;
+            K_a = E_steel .* pi .* d_s^2 ./ ( 4*l_s ) .* eye(6);
+            %K_a = diag([100 200 300 400 500 600]);
+            obj.calVelJac();
             K_p = inv(obj.jac')*K_a*inv(obj.jac);
             
+            disp('连杆刚度：')
+            disp(K_d);
+            disp('丝杆刚度：')
+            disp(K_p);
+            
             K = inv(inv(K_p) + inv(K_d));
+        end
+        %% 计算等效惯量
+        function Mp_eq = getEquivalentInertia(obj)
+            m_p = 5.78; %动平台质量，单位kg
+            I_p = [2.405E+004 0          0;
+                   0          1.424E+004 0;
+                   0          0          1.424E+004]; %动平台转动惯量
+            r_cmp = [0.0, 0.0, 18.28]';
+            R_pc = eye(3);
+            Rr_cmp = obj.rotm * r_cmp;
+            Rr_cross = [0          -Rr_cmp(3) Rr_cmp(2);
+                       Rr_cmp(3)  0          -Rr_cmp(1);
+                       -Rr_cmp(2) Rr_cmp(1)  0         ];
+            Ip_eq = obj.rotm * R_pc * I_p * R_pc' * obj.rotm';
+            Mp_eq = m_p * [eye(3); -Rr_cross] * [eye(3), -Rr_cross] + [zeros(3), zeros(3); zeros(3), Ip_eq];
+            
+            m_li = 0.815; %连杆质量，单位kg
+            I_li = [5498.42728 0         0;
+                    0          5384.4886 0;
+                    0          0         184.11219]; %连杆转动惯量
+            m_sli = 0.614; %滑块质量，单位kg
+                
+            obj.calVelJac();
+            G = inv(obj.jac)';
+            M_eq = Mp_eq;
+            for i = 1:6
+                l_xi = cross([1 0 0]',obj.l_dir(:,i));
+                R_li = [l_xi cross(obj.l_dir(:,i),l_xi) obj.l_dir(:,i)];
+                lambda_i = G(:,i);
+                rcmp_cross = [0         -r_cmp(3) r_cmp(2);
+                              r_cmp(3)  0         -r_cmp(1);
+                              -r_cmp(2) r_cmp(1)  0         ];
+                li_cross = [0             -obj.l_dir(3) obj.l_dir(2);
+                            obj.l_dir(3)  0             -obj.l_dir(1);
+                            -obj.l_dir(2) obj.l_dir(1)  0           ];
+                gamma_wi = li_cross / obj.l(i) * ([eye(3), -rcmp_cross] - obj.P_dir(:,i) * lambda_i');
+                gamma_vi = obj.P_dir(:,i) * lambda_i' - 1/2 * obj.l(i) * li_cross * gamma_wi;
+                Mli_eq = gamma_wi' * R_li * I_li * R_li' * gamma_wi + gamma_vi' * gamma_vi * m_li;
+                
+                Msli_eq = m_sli * (lambda_i * lambda_i');
+                
+                M_eq = M_eq + Mli_eq + Msli_eq;
+            end
         end
     end
 end
